@@ -4,66 +4,93 @@ using System.Collections;
 public class BasicMoveScript : MonoBehaviour {
 
     public Vector3 startPos, endPos;    //determine the bounds of motion
-    //public bool yHeight = true, xHeight = false, zHeight = false; //specify the axis to act as height.  Pieces arc within the height axis, but stay linear in the others
-    //public float speed; //number of frames it takes for piece to move from start to end
-    private float deltaX, deltaY, deltaZ, maxX, maxY, maxZ;   //variables for move equation
+    public float speed; //number of frames it takes for piece to move from start to end, values must be in bounds (0, 1]
+    private float deltaX, deltaZ, maxX, maxY, maxZ, Xpivot, Zpivot;   //variables for move equation
 
     // Use this for initialization
     void Start() {
-        //failsafe: if more than one height option is selected by tester, the booleans are prioritized: Y > X > Z
-        //failsafe: if no height option is selected, Y is made default
-        /*if (yHeight && xHeight) {
-            xHeight = false;
-            Debug.Log("xHeight/yHeight conflict.  Resolved to yHeight.");
-        } if (yHeight && zHeight) {
-            zHeight = false;
-            Debug.Log("zHeight/yHeight conflict.  Resolved to yHeight.");
-        } if (xHeight && zHeight) {
-            zHeight = false;
-            Debug.Log("xHeight/zHeight conflict.  Resolved to xHeight.");
-        } if (!xHeight && !yHeight && !zHeight) { 
-            yHeight = true;
-            Debug.Log("Height opt not set.  Resolved to yHeight.");
-        }*/
         deltaX = endPos.x - startPos.x;
         Debug.Log("deltaX solved.  Value = " + deltaX);
-        deltaY = endPos.y - startPos.y;
+        float deltaY = endPos.y - startPos.y;
         Debug.Log("deltaY solved.  Value = " + deltaY);
         deltaZ = endPos.z - startPos.z;
         Debug.Log("deltaZ solved.  Value = " + deltaZ);
-        /*if (xHeight)
-            maxX = (deltaX / 2) + 0.75f;
-        else*/
-            maxX = endPos.x;
+        maxX = endPos.x;
         Debug.Log("maxX solved.  Value = " + maxX);
-        //if (yHeight)
-            maxY = (deltaY / 2) + 0.75f;
-        /*else
-            maxY = endPos.y;*/
+        maxY = (deltaY / 2) + 0.75f + startPos.y;
         Debug.Log("maxY solved.  Value = " + maxY);
-        /*if (zHeight)
-            maxZ = (deltaZ / 2) + 0.75f;
-        else*/
-            maxZ = endPos.z;
+        maxZ = endPos.z;
         Debug.Log("maxZ solved.  Value = " + maxZ);
+        Xpivot = (endPos.x + startPos.x) / 2;
+        Debug.Log("Xpivot solved.  Value = " + Xpivot);
+        Zpivot = (endPos.z + startPos.z) / 2;
+        Debug.Log("Zpivot solved.  Value = " + Zpivot);
+        if (speed <= 0)
+            speed = 0.01f;
+        else if (speed > 1)
+            speed = 1.0f;
+        Debug.Log("Speed solved.  Value = " + speed);
     }
 	
 	// Update is called once per frame
 	void Update () {
         Vector3 position = transform.position;
         Debug.Log("Current position: (" + position.x + ", " + position.y + ", " + position.z + ")");
-        bool doMove = false;
+        bool doMove = true;
+        if (deltaX > 0 && position.x > endPos.x)
+            doMove = false;
+        else if (deltaX < 0 && position.x < endPos.x)
+            doMove = false;
+        else if (deltaX == 0 && position.x != endPos.x)
+            doMove = false;
+        if (deltaZ > 0 && position.z > endPos.z)
+            doMove = false;
+        else if (deltaZ < 0 && position.z < endPos.z)
+            doMove = false;
+        else if (deltaZ == 0 && position.z != endPos.z)
+            doMove = false;
+        if (position == endPos)
+            doMove = false;
+        Debug.Log("Is moving: " + doMove);
+        
+        bool doSwitch = false;
+        if (deltaX > 0 && position.x >= Xpivot) {
+            if (deltaZ > 0 && position.z >= Zpivot)
+                doSwitch = true;
+            else if (deltaZ < 0 && position.z <= Zpivot)
+                doSwitch = true;
+            else if (deltaZ == 0)
+                doSwitch = true;
+        } else if (deltaX < 0 && position.x <= Xpivot) {
+            if (deltaZ > 0 && position.z >= Zpivot)
+                doSwitch = true;
+            else if (deltaZ < 0 && position.z <= Zpivot)
+                doSwitch = true;
+            else if (deltaZ == 0)
+                doSwitch = true;
+        } else if (deltaX == 0) {
+            if (deltaZ > 0 && position.z >= Zpivot)
+                doSwitch = true;
+            else if (deltaZ < 0 && position.z <= Zpivot)
+                doSwitch = true;
+            else if (deltaZ == 0)
+                doSwitch = true;
+        }
+        Debug.Log("Past pivot: " + doSwitch);
+
         if (doMove)
         {
-            if (position.y < maxY)
-                transform.Translate(new Vector3(deltaX, (4 * maxY), deltaZ) * Time.deltaTime);
+            if (!doSwitch)
+                transform.Translate(new Vector3(deltaX, (4 * maxY), deltaZ) * Time.deltaTime * speed);
             else
-                transform.Translate(new Vector3(deltaX, ((0 - 1) * (4 * maxY)), deltaZ) * Time.deltaTime);
+                transform.Translate(new Vector3(deltaX, ((0 - 1) * (4 * maxY)), deltaZ) * Time.deltaTime * speed);
         }
+        else
+            transform.position = endPos;
 	}
 
-    /*float equation (float height, float length) {   //height is the axis specified as height
+    float equation (float maxHeight, float length) {
 
         return 0;
-    }*/
+    }
 }
