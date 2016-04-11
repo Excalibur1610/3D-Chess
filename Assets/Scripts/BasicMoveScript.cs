@@ -3,94 +3,62 @@ using System.Collections;
 
 public class BasicMoveScript : MonoBehaviour {
 
-    public Vector3 startPos, endPos;    //determine the bounds of motion
-    public float speed; //number of frames it takes for piece to move from start to end, values must be in bounds (0, 1]
-    private float deltaX, deltaZ, maxX, maxY, maxZ, Xpivot, Zpivot;   //variables for move equation
+    private Vector3 vectorDistance, endPos;    //determine the bounds of motion
+    private Rigidbody piece;    //for physics with piece
+    private float distance, tanAngle, maxHeight;
+    private bool apexPassed;
 
     // Use this for initialization
     void Start() {
-        deltaX = endPos.x - startPos.x;
-        Debug.Log("deltaX solved.  Value = " + deltaX);
-        float deltaY = endPos.y - startPos.y;
-        Debug.Log("deltaY solved.  Value = " + deltaY);
-        deltaZ = endPos.z - startPos.z;
-        Debug.Log("deltaZ solved.  Value = " + deltaZ);
-        maxX = endPos.x;
-        Debug.Log("maxX solved.  Value = " + maxX);
-        maxY = (deltaY / 2) + 0.75f + startPos.y;
-        Debug.Log("maxY solved.  Value = " + maxY);
-        maxZ = endPos.z;
-        Debug.Log("maxZ solved.  Value = " + maxZ);
-        Xpivot = (endPos.x + startPos.x) / 2;
-        Debug.Log("Xpivot solved.  Value = " + Xpivot);
-        Zpivot = (endPos.z + startPos.z) / 2;
-        Debug.Log("Zpivot solved.  Value = " + Zpivot);
-        if (speed <= 0)
-            speed = 0.01f;
-        else if (speed > 1)
-            speed = 1.0f;
-        Debug.Log("Speed solved.  Value = " + speed);
+        piece = GetComponent<Rigidbody>();
+        endPos = GameObject.Find("EndBlock").transform.position;
+        endPos.y = transform.position.y;
+        Vector3 startPos = transform.position;
+        maxHeight = 3.0f;
+        vectorDistance = endPos - startPos;
+        vectorDistance.y = 0;
+        distance = vectorDistance.magnitude;
+        tanAngle = (maxHeight * 2) / Mathf.Abs(distance);
+        apexPassed = false;
     }
-	
-	// Update is called once per frame
-	void Update () {
-        Vector3 position = transform.position;
-        Debug.Log("Current position: (" + position.x + ", " + position.y + ", " + position.z + ")");
-        bool doMove = true;
-        if (deltaX > 0 && position.x > endPos.x)
-            doMove = false;
-        else if (deltaX < 0 && position.x < endPos.x)
-            doMove = false;
-        else if (deltaX == 0 && position.x != endPos.x)
-            doMove = false;
-        if (deltaZ > 0 && position.z > endPos.z)
-            doMove = false;
-        else if (deltaZ < 0 && position.z < endPos.z)
-            doMove = false;
-        else if (deltaZ == 0 && position.z != endPos.z)
-            doMove = false;
-        if (position == endPos)
-            doMove = false;
-        Debug.Log("Is moving: " + doMove);
-        
-        bool doSwitch = false;
-        if (deltaX > 0 && position.x >= Xpivot) {
-            if (deltaZ > 0 && position.z >= Zpivot)
-                doSwitch = true;
-            else if (deltaZ < 0 && position.z <= Zpivot)
-                doSwitch = true;
-            else if (deltaZ == 0)
-                doSwitch = true;
-        } else if (deltaX < 0 && position.x <= Xpivot) {
-            if (deltaZ > 0 && position.z >= Zpivot)
-                doSwitch = true;
-            else if (deltaZ < 0 && position.z <= Zpivot)
-                doSwitch = true;
-            else if (deltaZ == 0)
-                doSwitch = true;
-        } else if (deltaX == 0) {
-            if (deltaZ > 0 && position.z >= Zpivot)
-                doSwitch = true;
-            else if (deltaZ < 0 && position.z <= Zpivot)
-                doSwitch = true;
-            else if (deltaZ == 0)
-                doSwitch = true;
-        }
-        Debug.Log("Past pivot: " + doSwitch);
 
-        if (doMove)
+    Vector3 VelocityCalculation () {
+        return new Vector3(XVelocity(), YVelocity(), ZVelocity());
+    }
+
+    float XVelocity () {
+        return endPos.x - transform.position.x + 0.4f;  //0.4f constant modifier to eliminate skipping effect
+    }
+
+    float YVelocity () {
+        if (transform.position.y < maxHeight && !apexPassed)
         {
-            if (!doSwitch)
-                transform.Translate(new Vector3(deltaX, (4 * maxY), deltaZ) * Time.deltaTime * speed);
-            else
-                transform.Translate(new Vector3(deltaX, ((0 - 1) * (4 * maxY)), deltaZ) * Time.deltaTime * speed);
+            float y = tanAngle * (Mathf.Abs(distance) / 2);
+            y -= transform.position.y - 0.1f;
+            y *= Physics.gravity.magnitude / 2;
+            return y;
         }
-        else
-            transform.position = endPos;
-	}
+        if (apexPassed)
+        {
+            float y = tanAngle * (Mathf.Abs(distance) / 2);
+            y -= transform.position.y - 0.1f;
+            return (0.0f - y);
+        }
+        apexPassed = true;
+        return 0.0f - 0.1f;
+    }
 
-    float equation (float maxHeight, float length) {
+    float ZVelocity () {
+        return endPos.z - transform.position.z + 0.4f;  //0.4f constant modifier to eliminate skipping effect
+    }
 
-        return 0;
+    void FixedUpdate() {
+        if (transform.position.y >= endPos.y)
+            piece.velocity = VelocityCalculation();
+        else {
+            piece.velocity = new Vector3(0, 0, 0);
+            if (transform.position != endPos)
+                transform.position = endPos;
+        }
     }
 }
