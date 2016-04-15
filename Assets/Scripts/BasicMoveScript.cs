@@ -3,9 +3,10 @@ using System.Collections;
 
 public class BasicMoveScript : MonoBehaviour {
 
-    private Vector3 vectorDistance, endPos;    //determine the bounds of motion
+    private Vector3 vectorDistance, endPos, startPos;    //determine the bounds of motion
     private Rigidbody piece;    //for physics with piece
     private float distance, tanAngle, maxHeight;
+    private float DELTA_TIME = (40 * Time.deltaTime);
     private bool apexPassed;
 
     // Use this for initialization
@@ -13,7 +14,7 @@ public class BasicMoveScript : MonoBehaviour {
         piece = GetComponent<Rigidbody>();
         endPos = GameObject.Find("EndBlock").transform.position;
         endPos.y = transform.position.y;
-        Vector3 startPos = transform.position;
+        startPos = transform.position;
         maxHeight = 3.0f;
         vectorDistance = endPos - startPos;
         vectorDistance.y = 0;
@@ -22,34 +23,24 @@ public class BasicMoveScript : MonoBehaviour {
         apexPassed = false;
     }
 
-    Vector3 VelocityCalculation () {
+    Vector3 ForceCalculation () {
+        Vector3 initVelocity = new Vector3(XVelocity(), YVelocity(), ZVelocity());
+
         return new Vector3(XVelocity(), YVelocity(), ZVelocity());
     }
 
     float XVelocity () {
-        return endPos.x - transform.position.x + 0.4f;  //0.4f constant modifier to eliminate skipping effect
+        float distance = endPos.x - startPos.x;
+        return distance / DELTA_TIME;
     }
 
     float YVelocity () {
-        if (transform.position.y < maxHeight && !apexPassed)
-        {
-            float y = tanAngle * (Mathf.Abs(distance) / 2);
-            y -= transform.position.y - 0.1f;
-            y *= Physics.gravity.magnitude / 2;
-            return y;
-        }
-        if (apexPassed)
-        {
-            float y = tanAngle * (Mathf.Abs(distance) / 2);
-            y -= transform.position.y - 0.1f;
-            return (0.0f - y);
-        }
-        apexPassed = true;
-        return 0.0f - 0.1f;
+        return Physics.gravity.magnitude * (DELTA_TIME / 2);
     }
 
     float ZVelocity () {
-        return endPos.z - transform.position.z + 0.4f;  //0.4f constant modifier to eliminate skipping effect
+        float distance = endPos.z - startPos.z;
+        return distance / DELTA_TIME;
     }
 
     void FixedUpdate() {
