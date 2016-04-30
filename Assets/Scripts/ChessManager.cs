@@ -9,16 +9,19 @@ public class ChessManager : MonoBehaviour {
     private bool P1Checkmate, P2Checkmate;  //checks for win. like above bools, P1.. = true is bad for P1 & P2.. = true is bad for P2
     private int P1Wins = 0, P2Wins = 0;
     private float ApplicationX, ApplicationY;   //window dimensions of game
+    private float zoom, deltaZoom, cameraX, cameraY, cameraZ;
+    Vector3 lastPosition = new Vector3(0, 0, 0);    //tracks mouse position for camera pan
 
-	// Use this for initialization
-	void Start () {
-        Clear();
+    // Use this for initialization
+    void Start () {
         Spaces = new GameObject[8,8];
-        Player1 = new PlayerClass();
-        Player2 = new PlayerClass();
+        Player1 = new PlayerClass(true);
+        Player2 = new PlayerClass(false);
         GenerateBoard();
         P1Turn = true;
         SetCamera();
+        zoom = 60f;
+        deltaZoom = 0;
         ApplicationX = Screen.width;
         ApplicationY = Screen.height;
 	}
@@ -26,10 +29,7 @@ public class ChessManager : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
         ManagePerspective();
-        GUI.skin.label.alignment = TextAnchor.MiddleCenter;
-        GUI.Label(new Rect(ApplicationX - 300, 0, 300, 20), "Player1: " + P1Wins + "\tPlayer2: " + P2Wins);
-        if (GUI.Button(new Rect(ApplicationX - 60, ApplicationY - 30, 60, 30), "Quit"))
-            Application.Quit();
+
         if (!P1Checkmate && !P2Checkmate)
         {
             List<Color> originalColors = new List<Color>();
@@ -44,40 +44,48 @@ public class ChessManager : MonoBehaviour {
                 P1Turn = !P1Turn;
             }
         }
-        else
+    }
+
+    void OnGUI() {
+        GUI.skin.label.alignment = TextAnchor.MiddleCenter;
+        GUI.Label(new Rect(ApplicationX - 300, 0, 300, 20), "Player1: " + P1Wins + "\tPlayer2: " + P2Wins);
+        if (GUI.Button(new Rect(ApplicationX - 60, ApplicationY - 30, 60, 30), "Quit"))
+            Application.Quit();
+        if (P1Checkmate)
         {
-            if (P1Checkmate)
-            {
-                GUI.Label(new Rect(ApplicationX/2 - 30, ApplicationY - 10, 60, 20), "Player 2 wins!!!!");
-                P2Wins++;
-            }
-            else
-            {
-                GUI.Label(new Rect(ApplicationX / 2 - 30, ApplicationY - 10, 60, 20), "Player 1 wins!!!!");
-                P1Wins++;
-            }
-            if (GUI.Button(new Rect(ApplicationX / 2 - 80, ApplicationY + 15, 160, 30), "New Game"))
-                Start();
+            Clear();
+            GUI.Label(new Rect(ApplicationX / 2 - 30, ApplicationY - 10, 60, 20), "Player 2 wins!!!!");
+            P2Wins++;
         }
+        else if (P2Checkmate)
+        {
+            Clear();
+            GUI.Label(new Rect(ApplicationX / 2 - 30, ApplicationY - 10, 60, 20), "Player 1 wins!!!!");
+            P1Wins++;
+        }
+        if (GUI.Button(new Rect(ApplicationX / 2 - 80, ApplicationY + 15, 160, 30), "New Game"))
+            Start();
     }
 
     void ManagePerspective() {
         //move camera around
-        while (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1))
+            lastPosition = Input.mousePosition;
+        if (Input.GetMouseButton(1))
         {
-            float deltaX, deltaZ;
-            if (transform.position.x < 4.5f && transform.position.x > -4.5f)
-                deltaX = Input.GetAxis("Mouse X") * 10f;
-            else
-                deltaX = 0f;
-            if (transform.position.z < 4.5f && transform.position.z > -4.5f)
-                deltaZ = Input.GetAxis("Mouse Y") * 10f;
-            else
-                deltaZ = 0f;
-            transform.Translate(deltaX, 0f, deltaZ);
+            Vector3 delta = Input.mousePosition - lastPosition;
+            if ((transform.position.x < -4.5f && delta.x < 0) || (transform.position.x > 4.5f && delta.x > 0))
+                delta.x = 0;
+            if ((transform.position.z < -7.5f && delta.y < 0) || (transform.position.z > 7.5f && delta.y > 0))
+                delta.y = 0;
+            transform.Translate(new Vector3(delta.x * 2f, 0, delta.y * 2f) * Time.deltaTime);
+            transform.position = new Vector3(transform.position.x, cameraY, transform.position.z);
+            lastPosition = Input.mousePosition;
         }
-        //rotate view of game board
-        while (Input.GetMouseButtonDown(2))
+        /*//rotate view of game board
+        if (Input.GetMouseButtonDown(2))
+            x;
+        if (Input.GetMouseButton(2))
         {
             float deltaY, deltaZ;
             if (transform.position.y > 0f)
@@ -89,9 +97,10 @@ public class ChessManager : MonoBehaviour {
             else
                 deltaZ = 0f;
             transform.RotateAround(new Vector3(transform.position.x, 0f, 0f), new Vector3(0, deltaY, deltaZ), 10f);
-        }
+        }*/
         //zoom in/out
-        float zoom = Input.GetAxis("Mouse ScrollWheel") * 10f;
+        deltaZoom = -1f * Input.GetAxis("Mouse ScrollWheel") * 10f;
+        zoom += deltaZoom;
         Camera.main.fieldOfView = Mathf.Clamp(zoom, 25f, 80f);
         //track window size
         ApplicationX = Screen.width;
@@ -124,40 +133,40 @@ public class ChessManager : MonoBehaviour {
                     switch (j)
                     {
                         case 0:
-                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Rook")), "rook");
+                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Rook")), "rook", new int[] { i, j });
                             break;
                         case 1:
-                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Knight")), "knight");
+                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Knight")), "knight", new int[] { i, j });
                             break;
                         case 2:
-                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Bishop")), "bishop");
+                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Bishop")), "bishop", new int[] { i, j });
                             break;
                         case 3:
-                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Queen")), "queen");
+                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1Queen")), "queen", new int[] { i, j });
                             break;
                         case 4:
-                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1King")), "king");
+                            Player1.AddPiece((GameObject)Instantiate(Resources.Load("P1King")), "king", new int[] { i, j });
                             break;
                         case 5:
                             newPiece = (GameObject)Instantiate(Resources.Load("P1Bishop"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player1.AddPiece(newPiece, "bishop");
+                            Player1.AddPiece(newPiece, "bishop", new int[] { i, j });
                             break;
                         case 6:
                             newPiece = (GameObject)Instantiate(Resources.Load("P1Knight"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player1.AddPiece(newPiece, "knight");
+                            Player1.AddPiece(newPiece, "knight", new int[] { i, j });
                             break;
                         case 7:
                             newPiece = (GameObject)Instantiate(Resources.Load("P1Rook"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player1.AddPiece(newPiece, "rook");
+                            Player1.AddPiece(newPiece, "rook", new int[] { i, j });
                             break;
                     }
                 }
@@ -165,9 +174,9 @@ public class ChessManager : MonoBehaviour {
                 {
                     newPiece = (GameObject)Instantiate(Resources.Load("P1Pawn"));
                     newPiece.transform.position = new Vector3(
-                        newPiece.transform.position.x + i, newPiece.transform.position.y, newPiece.transform.position.z
+                        newPiece.transform.position.x + j, newPiece.transform.position.y, newPiece.transform.position.z
                         );
-                    Player1.AddPiece(newPiece, "pawn");
+                    Player1.AddPiece(newPiece, "pawn", new int[] { i, j });
                 }
             }
         }
@@ -181,40 +190,40 @@ public class ChessManager : MonoBehaviour {
                     switch (j)
                     {
                         case 0:
-                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Rook")), "rook");
+                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Rook")), "rook", new int[] { i, j });
                             break;
                         case 1:
-                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Knight")), "knight");
+                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Knight")), "knight", new int[] { i, j });
                             break;
                         case 2:
-                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Bishop")), "bishop");
+                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Bishop")), "bishop", new int[] { i, j });
                             break;
                         case 3:
-                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Queen")), "queen");
+                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2Queen")), "queen", new int[] { i, j });
                             break;
                         case 4:
-                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2King")), "king");
+                            Player2.AddPiece((GameObject)Instantiate(Resources.Load("P2King")), "king", new int[] { i, j });
                             break;
                         case 5:
                             newPiece = (GameObject)Instantiate(Resources.Load("P2Bishop"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player2.AddPiece(newPiece, "bishop");
+                            Player2.AddPiece(newPiece, "bishop", new int[] { i, j });
                             break;
                         case 6:
                             newPiece = (GameObject)Instantiate(Resources.Load("P2Knight"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player2.AddPiece(newPiece, "knight");
+                            Player2.AddPiece(newPiece, "knight", new int[] { i, j });
                             break;
                         case 7:
                             newPiece = (GameObject)Instantiate(Resources.Load("P2Rook"));
                             newPiece.transform.position = new Vector3(
                                 -newPiece.transform.position.x, newPiece.transform.position.y, newPiece.transform.position.z
                                 );
-                            Player2.AddPiece(newPiece, "rook");
+                            Player2.AddPiece(newPiece, "rook", new int[] { i, j });
                             break;
                     }
                 }
@@ -222,9 +231,9 @@ public class ChessManager : MonoBehaviour {
                 {
                     newPiece = (GameObject)Instantiate(Resources.Load("P2Pawn"));
                     newPiece.transform.position = new Vector3(
-                        newPiece.transform.position.x + i, newPiece.transform.position.y, newPiece.transform.position.z
+                        newPiece.transform.position.x + j, newPiece.transform.position.y, newPiece.transform.position.z
                         );
-                    Player2.AddPiece(newPiece, "pawn");
+                    Player2.AddPiece(newPiece, "pawn", new int[] { i, j });
                 }
             }
         }
@@ -242,6 +251,9 @@ public class ChessManager : MonoBehaviour {
             transform.eulerAngles = new Vector3(40f, 180f, 0f);
         }
         Camera.main.fieldOfView = 60f;
+        cameraX = transform.position.x;
+        cameraY = transform.position.y;
+        cameraZ = transform.position.z;
     }
 
     List<int[]> GetAvailableMoves (GameObject SelectedPiece) {
@@ -747,14 +759,31 @@ public class ChessManager : MonoBehaviour {
                 if (hitInfo.transform.gameObject.name.Contains("Space"))
                 {
                     MeshRenderer renderer = hitInfo.transform.gameObject.GetComponent<MeshRenderer>();
+                    bool spaceFound = false;
+                    int i = 0, j = 0;
+                    for (i = 0; i < 8 && !spaceFound; i++)
+                    {
+                        for (j = 0; j < 8 && !spaceFound; j++)
+                        {
+                            if (Spaces[i, j].Equals(hitInfo.transform.gameObject))
+                                spaceFound = true;
+                        }
+                    }
                     Material highlight = (Material)Instantiate(Resources.Load("Highlight"));
                     if (renderer.material.color == highlight.color)
                     {
+                        if (P1Turn)
+                        {
+                            if (SelectedPiece.Equals(Player1.GetKing()))
+                                Player1.MoveKing();
+                            Player1.Move(SelectedPiece, new int[] { i, j });
+                        }
                         Vector3 Target = hitInfo.transform.gameObject.transform.position;
                         Target.y = SelectedPiece.transform.position.y;
                         bool Castle = (Mathf.Abs(SelectedPiece.transform.position.x - Target.x) == 2f);
                         Rigidbody pieceRB = SelectedPiece.GetComponent<Rigidbody>();
                         Move(pieceRB, SelectedPiece, Target, Castle);
+                        CheckPieceTake(Target);
                         while (Mathf.Abs(SelectedPiece.transform.position.x - Target.x) > 0.1f || Mathf.Abs(SelectedPiece.transform.position.z - Target.z) > 0.1f)
                         {
                         }
@@ -770,6 +799,36 @@ public class ChessManager : MonoBehaviour {
     {
         pieceRB.isKinematic = false;
         pieceRB.AddForce(ForceCalculation(pieceRB, Target, Piece.transform.position), ForceMode.Acceleration);
+    }
+
+    void CheckPieceTake(Vector3 Target) {
+        List<int[]> opposingPieces = new List<int[]>();
+        if (P1Turn)
+            opposingPieces = Player2.GetPiecePositions();
+        else
+            opposingPieces = Player1.GetPiecePositions();
+        int i = 0;
+        foreach (int[] space in opposingPieces)
+        {
+            if (Spaces[space[0], space[1]].transform.position.x == Target.x && 
+                Spaces[space[0], space[1]].transform.position.z == Target.z)
+            {
+                GameObject[] pieces;
+                if (P1Turn)
+                {
+                    pieces = Player2.GetPieces().ToArray();
+                    Player2.RemovePiece(pieces[i]);
+                }
+                else
+                {
+                    pieces = Player1.GetPieces().ToArray();
+                    Player1.RemovePiece(pieces[i]);
+                }
+                Destroy(pieces[i]);
+                break;
+            }
+            i++;
+        }
     }
 
     Vector3 ForceCalculation(Rigidbody piece, Vector3 Target, Vector3 startPos)

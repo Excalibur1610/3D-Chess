@@ -6,7 +6,7 @@ public class PlayerClass {
     private bool movedKing;
     private List<GameObject> InGamePieces;
 
-    public PlayerClass() {
+    public PlayerClass(bool isP1) {
         Pieces = new List<PieceClass>();
         movedKing = false;
         InGamePieces = new List<GameObject>();
@@ -16,8 +16,8 @@ public class PlayerClass {
         Pieces.Add(new PieceClass(Name, Location));
     }
 
-    public void AddPiece(GameObject Piece, string Name) {
-        AddPiece(Name, new int[] { (int)(Piece.transform.position.x + 3.5f), (int)(Piece.transform.position.z + 3.5f) } );
+    public void AddPiece(GameObject Piece, string Name, int[] Location) {
+        AddPiece(Name, Location );
         InGamePieces.Add(Piece);
     }
 
@@ -26,8 +26,20 @@ public class PlayerClass {
         
     }
 
-    public void Move(int[] PiecePosition, int[] newPosition) {
-        
+    public void Move(GameObject Piece, int[] newPosition) {
+        int i = 0;
+        GameObject[] pieces = InGamePieces.ToArray();
+        while (i < InGamePieces.Count)
+            if (pieces[i] == Piece)
+                break;
+        int[] PiecePosition = Pieces.ToArray()[i].GetLocation();
+        i = 0;
+        while (i < Pieces.Count)
+        {
+            PieceClass piece = Pieces.ToArray()[i];
+            if (piece.GetLocation() == PiecePosition)
+                piece.SetPiece(newPosition);
+        }
     }
 
     public List<int[]> AvailableMoves(int[] PiecePosition) {
@@ -63,6 +75,11 @@ public class PlayerClass {
     public bool KingMoved()
     {
         return movedKing;
+    }
+
+    public void MoveKing()
+    {
+        movedKing = true;
     }
 
     public List<GameObject> GetPieces()
