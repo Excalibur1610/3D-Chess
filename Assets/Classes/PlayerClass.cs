@@ -23,7 +23,7 @@ public class PlayerClass {
 
     public void RemovePiece(GameObject Piece)
     {
-        
+        InGamePieces.Remove(Piece);
     }
 
     public void Move(GameObject Piece, int[] newPosition) {
@@ -47,9 +47,34 @@ public class PlayerClass {
         string type = GetPieceType(PiecePosition);
         if (type.Equals("PAWN"))
         {
-            AvailableMoves.Add(new int[] { PiecePosition[0] + 1, PiecePosition[1] });
+            AvailableMoves.Add(new int[] { PiecePosition[0], PiecePosition[1] + 1 });
             if (PiecePosition[1] == 1)
-                AvailableMoves.Add(new int[] { PiecePosition[0] + 2, PiecePosition[1] });
+                AvailableMoves.Add(new int[] { PiecePosition[0], PiecePosition[1] + 2 });
+        }
+
+        if (type.Equals("ROOK"))
+        {
+            AvailableMoves.Add(new int[] { PiecePosition[0] + 8, PiecePosition[1] + 8 });
+        }
+
+        if (type.Equals("BISHOP"))
+        {
+            AvailableMoves.Add(new int[] { PiecePosition[0] + 1, PiecePosition[1] });
+        }
+
+        if (type.Equals("KNIGHT"))
+        {
+            AvailableMoves.Add(new int[] { PiecePosition[0] + 1, PiecePosition[1] });
+        }
+
+        if (type.Equals("KING"))
+        {
+            AvailableMoves.Add(new int[] { PiecePosition[0] + 1, PiecePosition[1] + 1 });
+        }
+
+        if (type.Equals("QUEEN"))
+        {
+            AvailableMoves.Add(new int[] { PiecePosition[0] + 1, PiecePosition[1] });
         }
         return AvailableMoves;
     }
