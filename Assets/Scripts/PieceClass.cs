@@ -6,7 +6,7 @@ public class PieceClass {
 
     public PieceClass(string name, int[] location)
     {
-        Name = name;
+        Name = name.ToUpper();
         Location = location;
     }
 

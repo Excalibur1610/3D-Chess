@@ -5,7 +5,7 @@ public class BasicMoveScript : MonoBehaviour {
     private Vector3 endPos, startPos;    //determine the bounds of motion
     private Rigidbody piece;    //for physics with piece
     private float distance, tanAngle, maxHeight;
-    private float DELTA_TIME = 40;
+    float DELTA_TIME = 40;
 
     // Use this for initialization
     void Start() {

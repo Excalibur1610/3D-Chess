@@ -2,15 +2,20 @@
 using System.Collections.Generic;
 
 public class ChessManager : MonoBehaviour {
-    private GameObject[,] Spaces;   //tracks the game board spaces
-    private PlayerClass Player1, Player2;
-    private bool P1Turn;    //tracks the turns
+    public GameObject[,] Spaces;   //tracks the game board spaces
+    public PlayerClass Player1, Player2;
+    public bool P1Turn;    //tracks the turns
     private bool P1InCheck, P2InCheck;  //checks if someone is in or will be in check
-    private bool P1Checkmate, P2Checkmate;  //checks for win. like above bools, P1.. = true is bad for P1 & P2.. = true is bad for P2
+    public bool P1Checkmate, P2Checkmate;  //checks for win. like above bools, P1.. = true is bad for P1 & P2.. = true is bad for P2
     private int P1Wins = 0, P2Wins = 0;
     private float ApplicationX, ApplicationY;   //window dimensions of game
-    private float zoom, deltaZoom, cameraX, cameraY, cameraZ;
-    Vector3 lastPosition = new Vector3(0, 0, 0);    //tracks mouse position for camera pan
+    private float zoom, deltaZoom;
+    private Vector3 lastPosition = new Vector3(0, 0, 0);    //tracks mouse position for camera pan
+    public GameObject previousSelection, SelectedPiece;
+    public List<Color> originalColors = new List<Color>();
+    public List<int[]> highlightedSpaces = new List<int[]>();
+    private const float CAMERA_RADIUS = 8.6023252670426267717294735350497f;
+    public bool SpaceSelectable;
 
     // Use this for initialization
     void Start () {
@@ -24,26 +29,13 @@ public class ChessManager : MonoBehaviour {
         deltaZoom = 0;
         ApplicationX = Screen.width;
         ApplicationY = Screen.height;
-	}
+        SpaceSelectable = false;
+        previousSelection = null;
+        Debug.Log("Game Start");
+    }
 	
-	// Update is called once per frame
-	void Update () {
+    void Update () {
         ManagePerspective();
-
-        if (!P1Checkmate && !P2Checkmate)
-        {
-            List<Color> originalColors = new List<Color>();
-            List<int[]> highlightedSpaces = new List<int[]>();
-            GameObject SelectedPiece = SelectPiece();
-            if (SelectedPiece != null)
-            {
-                highlightedSpaces = GetAvailableMoves(SelectedPiece);
-                originalColors = HighlightSpaces(highlightedSpaces);
-                SelectSpace(SelectedPiece);
-                UndoHighlights(highlightedSpaces, originalColors);
-                P1Turn = !P1Turn;
-            }
-        }
     }
 
     void OnGUI() {
@@ -51,6 +43,8 @@ public class ChessManager : MonoBehaviour {
         GUI.Label(new Rect(ApplicationX - 300, 0, 300, 20), "Player1: " + P1Wins + "\tPlayer2: " + P2Wins);
         if (GUI.Button(new Rect(ApplicationX - 60, ApplicationY - 30, 60, 30), "Quit"))
             Application.Quit();
+        if (GUI.Button(new Rect(0, ApplicationY - 30, 100, 30), "Reset Camera"))
+            SetCamera();
         if (P1Checkmate)
         {
             Clear();
@@ -74,32 +68,38 @@ public class ChessManager : MonoBehaviour {
         if (Input.GetMouseButton(1))
         {
             Vector3 delta = Input.mousePosition - lastPosition;
-            if ((transform.position.x < -4.5f && delta.x < 0) || (transform.position.x > 4.5f && delta.x > 0))
+            if ((transform.position.x < -4.5f && delta.x > 0) || (transform.position.x > 4.5f && delta.x < 0))
                 delta.x = 0;
-            if ((transform.position.z < -7.5f && delta.y < 0) || (transform.position.z > 7.5f && delta.y > 0))
+            if ((transform.position.z < -7.5f && delta.y > 0) || (transform.position.z > 7.5f && delta.y < 0))
                 delta.y = 0;
-            transform.Translate(new Vector3(delta.x * 2f, 0, delta.y * 2f) * Time.deltaTime);
-            transform.position = new Vector3(transform.position.x, cameraY, transform.position.z);
+            GameObject.Find("CameraCenter").transform.Translate(new Vector3(-delta.x * 2f, 0, -delta.y * 2f) * Time.deltaTime);
+            //transform.position = new Vector3(transform.position.x, cameraY, transform.position.z);
             lastPosition = Input.mousePosition;
         }
-        /*//rotate view of game board
+        //rotate view of game board
         if (Input.GetMouseButtonDown(2))
-            x;
+            lastPosition = Input.mousePosition;
         if (Input.GetMouseButton(2))
         {
-            float deltaY, deltaZ;
-            if (transform.position.y > 0f)
-                deltaY = Input.GetAxis("Mouse X") * 10f;
-            else
-                deltaY = 0f;
-            if (transform.position.z > 0f)
-                deltaZ = Input.GetAxis("Mouse Y") * 10f;
-            else
-                deltaZ = 0f;
-            transform.RotateAround(new Vector3(transform.position.x, 0f, 0f), new Vector3(0, deltaY, deltaZ), 10f);
-        }*/
+            Vector3 delta = Input.mousePosition - lastPosition;
+            Vector3 angle = new Vector3(Mathf.PI - (2f * Mathf.Acos(delta.x / (2f * CAMERA_RADIUS))), 
+                Mathf.PI - (2f * Mathf.Acos(delta.y / (2f * CAMERA_RADIUS))), 0f) * -300f;
+            if (transform.position.y < 1)
+            {
+                if (transform.position.z < GameObject.Find("CameraCenter").transform.position.z && angle.y < 0)
+                {
+                    angle.y = 0;
+                }
+                else if (transform.position.z > GameObject.Find("CameraCenter").transform.position.z && angle.y > 0)
+                {
+                    angle.y = 0;
+                }
+            }
+            GameObject.Find("CameraCenter").transform.Rotate(new Vector3(angle.y, -angle.x, 0f) * Time.deltaTime);
+            lastPosition = Input.mousePosition;
+        }
         //zoom in/out
-        deltaZoom = -1f * Input.GetAxis("Mouse ScrollWheel") * 10f;
+        deltaZoom = -1f * Input.GetAxis("Mouse ScrollWheel") * 20f;
         zoom += deltaZoom;
         Camera.main.fieldOfView = Mathf.Clamp(zoom, 25f, 80f);
         //track window size
@@ -242,21 +242,18 @@ public class ChessManager : MonoBehaviour {
     void SetCamera () {
         if (P1Turn)
         {
-            transform.position = new Vector3(0f, 5f, -7f);
-            transform.eulerAngles = new Vector3(40f, 0f, 0f);
+            GameObject.Find("CameraCenter").transform.position = new Vector3(0f, 0f, 0f);
+            GameObject.Find("CameraCenter").transform.eulerAngles = new Vector3(0f, 0f, 0f);
         }
         else
         {
-            transform.position = new Vector3(0f, 5f, 7f);
-            transform.eulerAngles = new Vector3(40f, 180f, 0f);
+            GameObject.Find("CameraCenter").transform.position = new Vector3(0f, 0f, 0f);
+            GameObject.Find("CameraCenter").transform.eulerAngles = new Vector3(0f, 180f, 0f);
         }
         Camera.main.fieldOfView = 60f;
-        cameraX = transform.position.x;
-        cameraY = transform.position.y;
-        cameraZ = transform.position.z;
     }
 
-    List<int[]> GetAvailableMoves (GameObject SelectedPiece) {
+    public List<int[]> GetAvailableMoves (GameObject SelectedPiece) {
         List<int[]> InvalidSpaces;  //spaces blocked by pieces
         List<int[]> ValidSpaces;  //spaces to which SelectedPiece can move
         int[] Position = new int[] { (int)(SelectedPiece.transform.position.x + 3.5f), (int)(SelectedPiece.transform.position.z + 3.5f) };
@@ -439,6 +436,28 @@ public class ChessManager : MonoBehaviour {
                             }
                             if (!removedOne)
                                 i++;
+                        }
+                    }
+                    if (!Player1.CanCastleLeft())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[0] == Position[0] - 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                    if (!Player1.CanCastleRight())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[0] == Position[0] + 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
                         }
                     }
                 }
@@ -649,7 +668,7 @@ public class ChessManager : MonoBehaviour {
                 }
                 if (Player2.GetPieceType(Position).Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
                 {
-                    if (P1InCheck)
+                    if (P2InCheck)
                     {
                         i = 0;
                         while (i < ValidSpaces.Count)
@@ -667,6 +686,28 @@ public class ChessManager : MonoBehaviour {
                             }
                             if (!removedOne)
                                 i++;
+                        }
+                    }
+                    if (!Player2.CanCastleLeft())
+                    {
+                        foreach(int[] space in ValidSpaces)
+                        {
+                            if (space[0] == Position[0] - 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                    if (!Player2.CanCastleRight())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[0] == Position[0] + 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
                         }
                     }
                 }
@@ -719,89 +760,13 @@ public class ChessManager : MonoBehaviour {
         return ValidSpaces;
     }
 
-    GameObject SelectPiece()
-    {
-        if (Input.GetMouseButton(0))
-        {
-            //start: code gathered from outside source (Unity Answers)
-            RaycastHit hitInfo = new RaycastHit();
-            bool hit = Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hitInfo);
-            if (hit)
-            {   //end: code gathered from outside source
-                if (P1Turn)
-                {
-                    if (hitInfo.transform.gameObject.name.Contains("P1"))
-                    {
-                        return hitInfo.transform.gameObject;
-                    }
-                }
-                else
-                {
-                    if (hitInfo.transform.gameObject.name.Contains("P2"))
-                    {
-                        return hitInfo.transform.gameObject;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    void SelectSpace(GameObject SelectedPiece)
-    {
-        if (Input.GetMouseButton(0))
-        {
-            //start: code gathered from outside source (Unity Answers)
-            RaycastHit hitInfo = new RaycastHit();
-            bool hit = Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hitInfo);
-            if (hit)
-            {   //end: code gathered from outside source
-                if (hitInfo.transform.gameObject.name.Contains("Space"))
-                {
-                    MeshRenderer renderer = hitInfo.transform.gameObject.GetComponent<MeshRenderer>();
-                    bool spaceFound = false;
-                    int i = 0, j = 0;
-                    for (i = 0; i < 8 && !spaceFound; i++)
-                    {
-                        for (j = 0; j < 8 && !spaceFound; j++)
-                        {
-                            if (Spaces[i, j].Equals(hitInfo.transform.gameObject))
-                                spaceFound = true;
-                        }
-                    }
-                    Material highlight = (Material)Instantiate(Resources.Load("Highlight"));
-                    if (renderer.material.color == highlight.color)
-                    {
-                        if (P1Turn)
-                        {
-                            if (SelectedPiece.Equals(Player1.GetKing()))
-                                Player1.MoveKing();
-                            Player1.Move(SelectedPiece, new int[] { i, j });
-                        }
-                        Vector3 Target = hitInfo.transform.gameObject.transform.position;
-                        Target.y = SelectedPiece.transform.position.y;
-                        bool Castle = (Mathf.Abs(SelectedPiece.transform.position.x - Target.x) == 2f);
-                        Rigidbody pieceRB = SelectedPiece.GetComponent<Rigidbody>();
-                        Move(pieceRB, SelectedPiece, Target, Castle);
-                        CheckPieceTake(Target);
-                        while (Mathf.Abs(SelectedPiece.transform.position.x - Target.x) > 0.1f || Mathf.Abs(SelectedPiece.transform.position.z - Target.z) > 0.1f)
-                        {
-                        }
-                        pieceRB.isKinematic = true;
-                        pieceRB.velocity = new Vector3(0f, 0f, 0f);
-                    }
-                }
-            }
-        }
-    }
-
-    void Move(Rigidbody pieceRB, GameObject Piece, Vector3 Target, bool Castle)
+    public void Move(Rigidbody pieceRB, GameObject Piece, Vector3 Target, bool Castle)
     {
         pieceRB.isKinematic = false;
         pieceRB.AddForce(ForceCalculation(pieceRB, Target, Piece.transform.position), ForceMode.Acceleration);
     }
 
-    void CheckPieceTake(Vector3 Target) {
+    public void CheckPieceTake(Vector3 Target) {
         List<int[]> opposingPieces = new List<int[]>();
         if (P1Turn)
             opposingPieces = Player2.GetPiecePositions();
@@ -928,25 +893,25 @@ public class ChessManager : MonoBehaviour {
         return false;
     }
 
-    List<Color> HighlightSpaces(List<int[]> availMoves)
+    public List<Color> HighlightSpaces(List<int[]> availMoves)
     {
         Material highlight = (Material)Instantiate(Resources.Load("Highlight"));
         List<Color> originalColors = new List<Color>();
         foreach(int[] space in availMoves)
         {
-            MeshRenderer renderer = Spaces[space[0], space[1]].GetComponent<MeshRenderer>();
+            MeshRenderer renderer = Spaces[space[0], space[1]].transform.GetChild(0).gameObject.GetComponent<MeshRenderer>();
             originalColors.Add(renderer.material.color);
             renderer.material.color = highlight.color;
         }
         return originalColors;
     }
 
-    void UndoHighlights(List<int[]> highlightedSpaces, List<Color> originalColors)
+    public void UndoHighlights(List<int[]> highlightedSpaces, List<Color> originalColors)
     {
         for (int i = 0; i < highlightedSpaces.Count; i++)
         {
             int[] space = highlightedSpaces.ToArray()[i];
-            MeshRenderer renderer = Spaces[space[0], space[1]].GetComponent<MeshRenderer>();
+            MeshRenderer renderer = Spaces[space[0], space[1]].transform.GetChild(0).gameObject.GetComponent<MeshRenderer>();
             renderer.material.color = originalColors.ToArray()[i];
         }
     }
