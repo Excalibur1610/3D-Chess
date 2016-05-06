@@ -11,7 +11,7 @@ public class ChessManager : MonoBehaviour {
     private float ApplicationX, ApplicationY;   //window dimensions of game
     private float zoom, deltaZoom;
     private Vector3 lastPosition = new Vector3(0, 0, 0);    //tracks mouse position for camera pan
-    public GameObject previousSelection, SelectedPiece;
+    public GameObject previousSelection, selectedPiece;
     public List<Color> originalColors = new List<Color>();
     public List<int[]> highlightedSpaces = new List<int[]>();
     private const float CAMERA_RADIUS = 8.6023252670426267717294735350497f;
@@ -256,34 +256,29 @@ public class ChessManager : MonoBehaviour {
     public List<int[]> GetAvailableMoves (GameObject SelectedPiece) {
         List<int[]> InvalidSpaces;  //spaces blocked by pieces
         List<int[]> ValidSpaces;  //spaces to which SelectedPiece can move
-        int[] Position = new int[] { (int)(SelectedPiece.transform.position.x + 3.5f), (int)(SelectedPiece.transform.position.z + 3.5f) };
+        int[] Position;
+        string type;
         if (P1Turn) //Player1
         {
+            Position = Player1.GetPiecePosition(SelectedPiece);
             InvalidSpaces = new List<int[]>(Player1.GetPiecePositions());
             ValidSpaces = new List<int[]>(Player1.AvailableMoves(Position));
-            int i = 0;
-            while (i < ValidSpaces.Count)   //remove spaces occupied by player's pieces first
+            type = Player1.GetPieceType(Position);
+            int i;
+            if (type.Equals("KNIGHT"))
             {
-                int[] space = ValidSpaces.ToArray()[i];
-                bool removedOne = false;
-                foreach (int[] occSpace in InvalidSpaces)
+
+                foreach (int[] space in InvalidSpaces)
                 {
-                    if (space == occSpace)
-                    {
+                    if (ValidSpaces.Contains(space))
                         ValidSpaces.Remove(space);
-                        removedOne = true;
-                        break;
-                    }
                 }
-                if (!removedOne)
-                    i++;
             }
-            if (!Player1.GetPieceType(Position).Equals("KNIGHT"))   //only knights can jump, so check for obstructions in move pattern
+            else   //only knights can jump, so check for obstructions in move pattern
             {
-                if (!Player1.GetPieceType(Position).Equals("PAWN"))
-                    foreach (int[] PlayerPiece in Player2.GetPiecePositions())
-                        InvalidSpaces.Add(PlayerPiece);
-                if (Player1.GetPieceType(Position).Equals("QUEEN") || Player1.GetPieceType(Position).Equals("ROOK"))
+                foreach (int[] PlayerPiece in Player2.GetPiecePositions())
+                    InvalidSpaces.Add(PlayerPiece);
+                if (type.Equals("QUEEN") || type.Equals("ROOK"))
                 {
                     i = 0;
                     while (i < ValidSpaces.Count)
@@ -336,7 +331,7 @@ public class ChessManager : MonoBehaviour {
                             i++;
                     }
                 }
-                if (Player1.GetPieceType(Position).Equals("QUEEN") || Player1.GetPieceType(Position).Equals("Bishop"))
+                if (type.Equals("QUEEN") || type.Equals("Bishop"))
                 {
                     i = 0;
                     while (i < ValidSpaces.Count)
@@ -416,7 +411,7 @@ public class ChessManager : MonoBehaviour {
                             i++;
                     }
                 }
-                if (Player1.GetPieceType(Position).Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
+                if (type.Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
                 {
                     if (P1InCheck)
                     {
@@ -425,9 +420,9 @@ public class ChessManager : MonoBehaviour {
                         {
                             int[] space = ValidSpaces.ToArray()[i];
                             bool removedOne = false;
-                            if (space[1] == Position[1])
+                            if (space[0] == Position[0])
                             {
-                                if (space[0] == Position[0] + 2 || space[0] == Position[0] - 2)
+                                if (space[1] == Position[1] + 2 || space[1] == Position[1] - 2)
                                 {
                                     ValidSpaces.Remove(space);
                                     removedOne = true;
@@ -442,7 +437,7 @@ public class ChessManager : MonoBehaviour {
                     {
                         foreach (int[] space in ValidSpaces)
                         {
-                            if (space[0] == Position[0] - 2)
+                            if (space[1] == Position[1] - 2)
                             {
                                 ValidSpaces.Remove(space);
                                 break;
@@ -453,7 +448,7 @@ public class ChessManager : MonoBehaviour {
                     {
                         foreach (int[] space in ValidSpaces)
                         {
-                            if (space[0] == Position[0] + 2)
+                            if (space[1] == Position[1] + 2)
                             {
                                 ValidSpaces.Remove(space);
                                 break;
@@ -461,32 +456,37 @@ public class ChessManager : MonoBehaviour {
                         }
                     }
                 }
-                if (Player1.GetPieceType(Position).Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                if (!type.Equals("PAWN"))
                 {
-                    InvalidSpaces.Clear();
-                    foreach (int[] PlayerPiece in Player2.GetPiecePositions())
-                        InvalidSpaces.Add(PlayerPiece);
+                    foreach (int[] space in Player1.GetPiecePositions())
+                    {
+                        if (ValidSpaces.Contains(space))
+                            ValidSpaces.Remove(space);
+                    }
+                }
+                if (type.Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                {
                     if (ValidSpaces.Count > 1)  //pawn hasn't moved yet
                     {
                         foreach (int[] occSpace in InvalidSpaces)
                         {
-                            if (occSpace[0] == Position[0])
+                            if (occSpace[1] == Position[1])
                             {
-                                if (occSpace[1] == Position[1] + 1)
+                                if (occSpace[0] == Position[0] + 1)
                                 {
                                     ValidSpaces.Clear();
                                     break;
                                 }
-                                if (occSpace[1] == Position[1] + 2)
-                                    ValidSpaces.Remove(new int[] { Position[0], Position[1] + 2 });
+                                if (occSpace[0] == Position[0] + 2)
+                                    ValidSpaces.Remove(new int[] { Position[0] + 2, Position[1] });
                             }
                         }
                     }
                     foreach (int[] occSpace in InvalidSpaces)   //diagonal attack opportunity
                     {
-                        if (occSpace[1] == Position[1] + 1)
+                        if (occSpace[0] == Position[0] + 1)
                         {
-                            if (occSpace[0] == Position[0] + 1 || occSpace[0] == Position[0] - 1)
+                            if (occSpace[1] == Position[1] + 1 || occSpace[1] == Position[1] - 1)
                                 ValidSpaces.Add(occSpace);
                         }
                     }
@@ -509,31 +509,26 @@ public class ChessManager : MonoBehaviour {
         }
         else    //Player2
         {
+            Position = Player2.GetPiecePosition(SelectedPiece);
             InvalidSpaces = new List<int[]>(Player2.GetPiecePositions());
             ValidSpaces = new List<int[]>(Player2.AvailableMoves(Position));
-            int i = 0;
-            while (i < ValidSpaces.Count)   //remove spaces occupied by player's pieces first
+            type = Player2.GetPieceType(Position);
+            int i;
+            if (type.Equals("KNIGHT"))
             {
-                int[] space = ValidSpaces.ToArray()[i];
-                bool removedOne = false;
-                foreach (int[] occSpace in InvalidSpaces)
+
+                foreach (int[] space in InvalidSpaces)
                 {
-                    if (space == occSpace)
-                    {
+                    if (ValidSpaces.Contains(space))
                         ValidSpaces.Remove(space);
-                        removedOne = true;
-                        break;
-                    }
                 }
-                if (!removedOne)
-                    i++;
             }
-            if (!Player2.GetPieceType(Position).Equals("KNIGHT"))   //only knights can jump, so check for obstructions in move pattern
+            else   //only knights can jump, so check for obstructions in move pattern
             {
-                if (!Player2.GetPieceType(Position).Equals("PAWN"))
+                if (!type.Equals("PAWN"))
                     foreach (int[] PlayerPiece in Player2.GetPiecePositions())
                         InvalidSpaces.Add(PlayerPiece);
-                if (Player2.GetPieceType(Position).Equals("QUEEN") || Player2.GetPieceType(Position).Equals("ROOK"))
+                if (type.Equals("QUEEN") || type.Equals("ROOK"))
                 {
                     i = 0;
                     while (i < ValidSpaces.Count)
@@ -586,7 +581,7 @@ public class ChessManager : MonoBehaviour {
                             i++;
                     }
                 }
-                if (Player2.GetPieceType(Position).Equals("QUEEN") || Player2.GetPieceType(Position).Equals("Bishop"))
+                if (type.Equals("QUEEN") || type.Equals("Bishop"))
                 {
                     i = 0;
                     while (i < ValidSpaces.Count)
@@ -666,7 +661,7 @@ public class ChessManager : MonoBehaviour {
                             i++;
                     }
                 }
-                if (Player2.GetPieceType(Position).Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
+                if (type.Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
                 {
                     if (P2InCheck)
                     {
@@ -675,9 +670,9 @@ public class ChessManager : MonoBehaviour {
                         {
                             int[] space = ValidSpaces.ToArray()[i];
                             bool removedOne = false;
-                            if (space[1] == Position[1])
+                            if (space[0] == Position[0])
                             {
-                                if (space[0] == Position[0] + 2 || space[0] == Position[0] - 2)
+                                if (space[1] == Position[1] + 2 || space[1] == Position[1] - 2)
                                 {
                                     ValidSpaces.Remove(space);
                                     removedOne = true;
@@ -692,7 +687,7 @@ public class ChessManager : MonoBehaviour {
                     {
                         foreach(int[] space in ValidSpaces)
                         {
-                            if (space[0] == Position[0] - 2)
+                            if (space[1] == Position[1] - 2)
                             {
                                 ValidSpaces.Remove(space);
                                 break;
@@ -703,7 +698,7 @@ public class ChessManager : MonoBehaviour {
                     {
                         foreach (int[] space in ValidSpaces)
                         {
-                            if (space[0] == Position[0] + 2)
+                            if (space[1] == Position[1] + 2)
                             {
                                 ValidSpaces.Remove(space);
                                 break;
@@ -711,32 +706,37 @@ public class ChessManager : MonoBehaviour {
                         }
                     }
                 }
-                if (Player2.GetPieceType(Position).Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                if (!type.Equals("PAWN"))
                 {
-                    InvalidSpaces.Clear();
-                    foreach (int[] PlayerPiece in Player2.GetPiecePositions())
-                        InvalidSpaces.Add(PlayerPiece);
+                    foreach (int[] space in Player2.GetPiecePositions())
+                    {
+                        if (ValidSpaces.Contains(space))
+                            ValidSpaces.Remove(space);
+                    }
+                }
+                if (type.Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                {
                     if (ValidSpaces.Count > 1)  //pawn hasn't moved yet
                     {
                         foreach (int[] occSpace in InvalidSpaces)
                         {
-                            if (occSpace[0] == Position[0])
+                            if (occSpace[1] == Position[1])
                             {
-                                if (occSpace[1] == Position[1] - 1)
+                                if (occSpace[0] == Position[0] - 1)
                                 {
                                     ValidSpaces.Clear();
                                     break;
                                 }
-                                if (occSpace[1] == Position[1] - 2)
-                                    ValidSpaces.Remove(new int[] { Position[0], Position[1] - 2 });
+                                if (occSpace[0] == Position[0] - 2)
+                                    ValidSpaces.Remove(new int[] { Position[0] - 2, Position[1] });
                             }
                         }
                     }
                     foreach (int[] occSpace in InvalidSpaces)   //diagonal attack opportunity
                     {
-                        if (occSpace[1] == Position[1] - 1)
+                        if (occSpace[0] == Position[0] - 1)
                         {
-                            if (occSpace[0] == Position[0] + 1 || occSpace[0] == Position[0] - 1)
+                            if (occSpace[1] == Position[1] + 1 || occSpace[1] == Position[1] - 1)
                                 ValidSpaces.Add(occSpace);
                         }
                     }
@@ -824,6 +824,7 @@ public class ChessManager : MonoBehaviour {
     {
         List<int[]> newMoves = new List<int[]>();
         GameObject opposingKing;
+        int[] kingPos;
         P2InCheck = false;
         P1InCheck = false;
         if (P1Turn) //?Player1 put Player2 in check?
@@ -835,7 +836,8 @@ public class ChessManager : MonoBehaviour {
 
             foreach(int[] move in newMoves)
             {
-                if (move == new int[] { (int)(opposingKing.transform.position.x + 3.5f), (int)(opposingKing.transform.position.z + 3.5f) })
+                kingPos = Player2.GetPiecePosition(opposingKing);
+                if (move[0] == kingPos[0] && move[1] == kingPos[1])
                 {
                     P2InCheck = true;
                     break;
@@ -851,7 +853,8 @@ public class ChessManager : MonoBehaviour {
 
             foreach (int[] move in newMoves)
             {
-                if (move == new int[] { (int)(opposingKing.transform.position.x + 3.5f), (int)(opposingKing.transform.position.z + 3.5f) })
+                kingPos = Player1.GetPiecePosition(opposingKing);
+                if (move[0] == kingPos[0] && move[1] == kingPos[1])
                 {
                     P1InCheck = true;
                     break;
@@ -864,16 +867,17 @@ public class ChessManager : MonoBehaviour {
     {
         List<int[]> opposingMoves = new List<int[]>();
         GameObject ownKing;
+        int[] kingPos;
         if (P1Turn) //?Player1 put self in check?
         {
             ownKing = Player1.GetKing();
             foreach (GameObject piece in Player2.GetPieces())
-                foreach (int[] move in GetAvailableMoves(piece))
-                    opposingMoves.Add(move);
+                opposingMoves.AddRange(GetAvailableMoves(piece, movingPiece, targetPosition));
 
             foreach (int[] move in opposingMoves)
             {
-                if (move == new int[] { (int)(ownKing.transform.position.x + 3.5f), (int)(ownKing.transform.position.z + 3.5f) })
+                kingPos = Player1.GetPiecePosition(ownKing);
+                if (move[0] == kingPos[0] && move[1] == kingPos[1])
                     return true;
             }
         }
@@ -881,12 +885,12 @@ public class ChessManager : MonoBehaviour {
         {
             ownKing = Player2.GetKing();
             foreach (GameObject piece in Player1.GetPieces())
-                foreach (int[] move in GetAvailableMoves(piece))
-                    opposingMoves.Add(move);
+                opposingMoves.AddRange(GetAvailableMoves(piece, movingPiece, targetPosition));
 
             foreach (int[] move in opposingMoves)
             {
-                if (move == new int[] { (int)(ownKing.transform.position.x + 3.5f), (int)(ownKing.transform.position.z + 3.5f) })
+                kingPos = Player2.GetPiecePosition(ownKing);
+                if (move[0] == kingPos[0] && move[1] == kingPos[1])
                     return true;
             }
         }
@@ -960,5 +964,483 @@ public class ChessManager : MonoBehaviour {
         if (Player2 != null)
             foreach (GameObject piece in Player2.GetPieces())
                 Destroy(piece);
+    }
+
+    private List<int[]> GetAvailableMoves(GameObject SelectedPiece, GameObject movingPiece, int[] targetPosition)
+    {
+        List<int[]> InvalidSpaces;  //spaces blocked by pieces
+        List<int[]> ValidSpaces;  //spaces to which SelectedPiece can move
+        int[] Position;
+        string type;
+        if (!P1Turn) //Player2  for <boolean> checkcheck method
+        {
+            Position = Player2.GetPiecePosition(SelectedPiece);
+            InvalidSpaces = new List<int[]>(Player1.GetPiecePositions());
+            ValidSpaces = new List<int[]>(Player1.AvailableMoves(Position));
+            int i;
+            foreach (int[] space in ValidSpaces)
+            {
+                if (InvalidSpaces.Contains(space))
+                    ValidSpaces.Remove(space);
+            }
+            type = Player2.GetPieceType(Position);
+            if (!type.Equals("KNIGHT"))   //only knights can jump, so check for obstructions in move pattern
+            {
+                foreach (int[] PlayerPiece in Player2.GetPiecePositions())
+                    InvalidSpaces.Add(PlayerPiece);
+                InvalidSpaces.Remove(Player2.GetPiecePosition(movingPiece));
+                InvalidSpaces.Add(targetPosition);
+                if (type.Equals("QUEEN") || type.Equals("ROOK"))
+                {
+                    i = 0;
+                    while (i < ValidSpaces.Count)
+                    {
+                        int[] space = ValidSpaces.ToArray()[i];
+                        bool removedOne = false;
+                        bool equalX, equalZ;    //neither have to be true, but never both true
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            equalX = (occSpace[0] == Position[0]);
+                            equalZ = (occSpace[1] == Position[1]);
+                            if (equalX && space[0] == Position[0])
+                            {
+                                if (occSpace[1] > Position[1])
+                                {
+                                    if (space[1] > occSpace[1])
+                                    {
+                                        ValidSpaces.Remove(space);
+                                        removedOne = true;
+                                        break;
+                                    }
+                                }
+                                else if (space[1] < occSpace[1])
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                            else if (equalZ && space[1] == Position[1])
+                            {
+                                if (occSpace[0] > Position[0])
+                                {
+                                    if (space[0] > occSpace[0])
+                                    {
+                                        ValidSpaces.Remove(space);
+                                        removedOne = true;
+                                        break;
+                                    }
+                                }
+                                else if (space[0] < occSpace[0])
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!removedOne)
+                            i++;
+                    }
+                }
+                if (type.Equals("QUEEN") || type.Equals("Bishop"))
+                {
+                    i = 0;
+                    while (i < ValidSpaces.Count)
+                    {
+                        int[] space = ValidSpaces.ToArray()[i];
+                        bool removedOne = false;
+                        bool inDiagonal, sameDiagonal, Left, Up;
+                        Left = ((space[0] - Position[0]) < 0);
+                        Up = ((space[1] - Position[1]) > 0);
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            inDiagonal = (Mathf.Abs(occSpace[0] - Position[0]) == Mathf.Abs(occSpace[1] - Position[1]));
+                            if (inDiagonal)
+                            {
+                                sameDiagonal = (((space[0] - Position[0]) > 0 && (occSpace[0] - Position[0]) > 0) &&
+                                    ((space[1] - Position[1]) > 0 && (occSpace[1] - Position[1]) > 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) > 0 && (occSpace[0] - Position[0]) > 0) &&
+                                    ((space[1] - Position[1]) < 0 && (occSpace[1] - Position[1]) < 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) < 0 && (occSpace[0] - Position[0]) < 0) &&
+                                    ((space[1] - Position[1]) < 0 && (occSpace[1] - Position[1]) < 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) < 0 && (occSpace[0] - Position[0]) < 0) &&
+                                    ((space[1] - Position[1]) > 0 && (occSpace[1] - Position[1]) > 0));
+                                if (sameDiagonal)
+                                {
+                                    if (Left)
+                                    {
+                                        if (space[0] < occSpace[0])
+                                        {
+                                            if (Up)
+                                            {
+                                                if (space[1] > occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (space[1] < occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (space[0] > occSpace[0])
+                                        {
+                                            if (Up)
+                                            {
+                                                if (space[1] > occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (space[1] < occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!removedOne)
+                            i++;
+                    }
+                }
+                if (type.Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
+                {
+                    if (P2InCheck)
+                    {
+                        i = 0;
+                        while (i < ValidSpaces.Count)
+                        {
+                            int[] space = ValidSpaces.ToArray()[i];
+                            bool removedOne = false;
+                            if (space[0] == Position[0])
+                            {
+                                if (space[1] == Position[1] + 2 || space[1] == Position[1] - 2)
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                            if (!removedOne)
+                                i++;
+                        }
+                    }
+                    if (!Player2.CanCastleLeft())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[1] == Position[1] - 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                    if (!Player2.CanCastleRight())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[1] == Position[1] + 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (type.Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                {
+                    InvalidSpaces.Clear();
+                    foreach (int[] PlayerPiece in Player2.GetPiecePositions())
+                        InvalidSpaces.Add(PlayerPiece);
+                    InvalidSpaces.Remove(Player2.GetPiecePosition(movingPiece));
+                    InvalidSpaces.Add(targetPosition);
+                    if (ValidSpaces.Count > 1)  //pawn hasn't moved yet
+                    {
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            if (occSpace[1] == Position[1])
+                            {
+                                if (occSpace[0] == Position[0] + 1)
+                                {
+                                    ValidSpaces.Clear();
+                                    break;
+                                }
+                                if (occSpace[0] == Position[0] + 2)
+                                    ValidSpaces.Remove(new int[] { Position[0] + 2, Position[1] });
+                            }
+                        }
+                    }
+                    foreach (int[] occSpace in InvalidSpaces)   //diagonal attack opportunity
+                    {
+                        if (occSpace[0] == Position[0] + 1)
+                        {
+                            if (occSpace[1] == Position[1] + 1 || occSpace[1] == Position[1] - 1)
+                                ValidSpaces.Add(occSpace);
+                        }
+                    }
+                }
+            }
+        }
+        else    //Player1 for <boolean> checkcheck
+        {
+            Position = Player2.GetPiecePosition(SelectedPiece);
+            InvalidSpaces = new List<int[]>(Player2.GetPiecePositions());
+            ValidSpaces = new List<int[]>(Player2.AvailableMoves(Position));
+            type = Player2.GetPieceType(Position);
+            int i;
+            if (type.Equals("KNIGHT"))
+            {
+
+                foreach (int[] space in InvalidSpaces)
+                {
+                    if (ValidSpaces.Contains(space))
+                        ValidSpaces.Remove(space);
+                }
+            }
+            else   //only knights can jump, so check for obstructions in move pattern
+            {
+                foreach (int[] PlayerPiece in Player1.GetPiecePositions())
+                    InvalidSpaces.Add(PlayerPiece);
+                InvalidSpaces.Remove(Player1.GetPiecePosition(movingPiece));
+                InvalidSpaces.Add(targetPosition);
+                if (type.Equals("QUEEN") || type.Equals("ROOK"))
+                {
+                    i = 0;
+                    while (i < ValidSpaces.Count)
+                    {
+                        int[] space = ValidSpaces.ToArray()[i];
+                        bool removedOne = false;
+                        bool equalX, equalZ;    //neither have to be true, but never both true
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            equalX = (occSpace[0] == Position[0]);
+                            equalZ = (occSpace[1] == Position[1]);
+                            if (equalX && space[0] == Position[0])
+                            {
+                                if (occSpace[1] > Position[1])
+                                {
+                                    if (space[1] > occSpace[1])
+                                    {
+                                        ValidSpaces.Remove(space);
+                                        removedOne = true;
+                                        break;
+                                    }
+                                }
+                                else if (space[1] < occSpace[1])
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                            else if (equalZ && space[1] == Position[1])
+                            {
+                                if (occSpace[0] > Position[0])
+                                {
+                                    if (space[0] > occSpace[0])
+                                    {
+                                        ValidSpaces.Remove(space);
+                                        removedOne = true;
+                                        break;
+                                    }
+                                }
+                                else if (space[0] < occSpace[0])
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!removedOne)
+                            i++;
+                    }
+                }
+                if (type.Equals("QUEEN") || type.Equals("Bishop"))
+                {
+                    i = 0;
+                    while (i < ValidSpaces.Count)
+                    {
+                        int[] space = ValidSpaces.ToArray()[i];
+                        bool removedOne = false;
+                        bool inDiagonal, sameDiagonal, Left, Up;
+                        Left = ((space[0] - Position[0]) < 0);
+                        Up = ((space[1] - Position[1]) > 0);
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            inDiagonal = (Mathf.Abs(occSpace[0] - Position[0]) == Mathf.Abs(occSpace[1] - Position[1]));
+                            if (inDiagonal)
+                            {
+                                sameDiagonal = (((space[0] - Position[0]) > 0 && (occSpace[0] - Position[0]) > 0) &&
+                                    ((space[1] - Position[1]) > 0 && (occSpace[1] - Position[1]) > 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) > 0 && (occSpace[0] - Position[0]) > 0) &&
+                                    ((space[1] - Position[1]) < 0 && (occSpace[1] - Position[1]) < 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) < 0 && (occSpace[0] - Position[0]) < 0) &&
+                                    ((space[1] - Position[1]) < 0 && (occSpace[1] - Position[1]) < 0));
+                                sameDiagonal = sameDiagonal || (((space[0] - Position[0]) < 0 && (occSpace[0] - Position[0]) < 0) &&
+                                    ((space[1] - Position[1]) > 0 && (occSpace[1] - Position[1]) > 0));
+                                if (sameDiagonal)
+                                {
+                                    if (Left)
+                                    {
+                                        if (space[0] < occSpace[0])
+                                        {
+                                            if (Up)
+                                            {
+                                                if (space[1] > occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (space[1] < occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (space[0] > occSpace[0])
+                                        {
+                                            if (Up)
+                                            {
+                                                if (space[1] > occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (space[1] < occSpace[1])
+                                                {
+                                                    ValidSpaces.Remove(space);
+                                                    removedOne = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!removedOne)
+                            i++;
+                    }
+                }
+                if (type.Equals("KING"))  //SPECIAL CASE: king cannot castle when in check
+                {
+                    if (P2InCheck)
+                    {
+                        i = 0;
+                        while (i < ValidSpaces.Count)
+                        {
+                            int[] space = ValidSpaces.ToArray()[i];
+                            bool removedOne = false;
+                            if (space[0] == Position[0])
+                            {
+                                if (space[1] == Position[1] + 2 || space[1] == Position[1] - 2)
+                                {
+                                    ValidSpaces.Remove(space);
+                                    removedOne = true;
+                                    break;
+                                }
+                            }
+                            if (!removedOne)
+                                i++;
+                        }
+                    }
+                    if (!Player2.CanCastleLeft())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[1] == Position[1] - 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                    if (!Player2.CanCastleRight())
+                    {
+                        foreach (int[] space in ValidSpaces)
+                        {
+                            if (space[1] == Position[1] + 2)
+                            {
+                                ValidSpaces.Remove(space);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!type.Equals("PAWN"))
+                {
+                    foreach(int[] space in Player2.GetPiecePositions())
+                    {
+                        if (ValidSpaces.Contains(space))
+                            ValidSpaces.Remove(space);
+                    }
+                }
+                if (type.Equals("PAWN"))  //SPECIAL CASES: pawns attack diagonally, pawns can move two instead of one on first move.  OPT SPECIAL CASE: en passant rule
+                {
+                    if (ValidSpaces.Count > 1)  //pawn hasn't moved yet
+                    {
+                        foreach (int[] occSpace in InvalidSpaces)
+                        {
+                            if (occSpace[1] == Position[1])
+                            {
+                                if (occSpace[0] == Position[0] - 1)
+                                {
+                                    ValidSpaces.Clear();
+                                    break;
+                                }
+                                if (occSpace[0] == Position[0] - 2)
+                                    ValidSpaces.Remove(new int[] { Position[0] - 2, Position[1] });
+                            }
+                        }
+                    }
+                    if (InvalidSpaces.Contains(ValidSpaces.ToArray()[0]))
+                        ValidSpaces.Clear();
+                    foreach (int[] occSpace in InvalidSpaces)   //diagonal attack opportunity
+                    {
+                        if (occSpace[0] == Position[0] - 1)
+                        {
+                            if (occSpace[1] == Position[1] + 1 || occSpace[1] == Position[1] - 1)
+                                ValidSpaces.Add(occSpace);
+                        }
+                    }
+                }
+            }
+        }
+        return ValidSpaces;
     }
 }
