@@ -4,15 +4,16 @@ public class BasicMoveScript : MonoBehaviour {
 
     private Vector3 endPos, startPos;    //determine the bounds of motion
     private Rigidbody piece;    //for physics with piece
-    float DELTA_TIME = 40;
+    float DELTA_TIME = 80;
 
     // Use this for initialization
     void Start() {
         DELTA_TIME *= Time.deltaTime;
         piece = GetComponent<Rigidbody>();
-        endPos = GameObject.Find("EndBlock").transform.position;
+        endPos = new Vector3(-1.5f, 0f, -1.5f);
         endPos.y = transform.position.y;
         startPos = transform.position;
+        piece.isKinematic = false;
         piece.AddForce(ForceCalculation(), ForceMode.Acceleration);
     }
 
@@ -38,8 +39,11 @@ public class BasicMoveScript : MonoBehaviour {
 
     void Update () {
         Vector3 position = transform.position;
-        position.y += .2f;
-        if (position == endPos)
+        if (Mathf.Abs(position.x - endPos.x) < .1f && Mathf.Abs(position.z - endPos.z) < .1f)
+        {
+            piece.isKinematic = true;
             piece.velocity = new Vector3(0, 0, 0);
+            transform.position = endPos;
+        }
     }
 }
